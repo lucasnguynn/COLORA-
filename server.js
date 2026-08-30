@@ -1,318 +1,60 @@
-
-const http = require("http");
-const fs = require("fs");
-const path = require("path");
-const crypto = require("crypto");
-const { URL } = require("url");
+const http = require('http');
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
+const { URL } = require('url');
+const { Pool } = require('pg');
 
 const PORT = Number(process.env.PORT || 8787);
-const HOST = process.env.HOST || "0.0.0.0";
-const ADMIN_KEY = process.env.COLORA_ADMIN_KEY || "change-me-in-production";
-const SIGNING_SECRET = process.env.COLORA_SIGNING_SECRET || "dev-signing-secret-change-me";
-const PUBLIC_BASE_URL = (process.env.PUBLIC_BASE_URL || `http://localhost:${PORT}`).replace(/\/$/, "");
-
+const HOST = process.env.HOST || '0.0.0.0';
+const ADMIN_KEY = process.env.COLORA_ADMIN_KEY || 'change-me-in-production';
+const SIGNING_SECRET = process.env.COLORA_SIGNING_SECRET || 'dev-signing-secret-change-me';
+const DATABASE_URL = String(process.env.DATABASE_URL || '').trim();
 const ROOT = __dirname;
-const PUBLIC_DIR = path.join(ROOT, "public");
-const DATA_DIR = path.join(ROOT, "data");
-const DB_FILE = path.join(DATA_DIR, "products.json");
+const PUBLIC_DIR = path.join(ROOT, 'public');
+const DATA_DIR = path.join(ROOT, 'data');
+const DB_FILE = path.join(DATA_DIR, 'products.json');
 
 fs.mkdirSync(DATA_DIR, { recursive: true });
-if (!fs.existsSync(DB_FILE)) fs.writeFileSync(DB_FILE, "[]", "utf8");
+if (!fs.existsSync(DB_FILE)) fs.writeFileSync(DB_FILE, '[]', 'utf8');
 
-function loadDb() {
-  try { return JSON.parse(fs.readFileSync(DB_FILE, "utf8")); }
-  catch { return []; }
-}
-function saveDb(records) {
-  fs.writeFileSync(DB_FILE, JSON.stringify(records, null, 2), "utf8");
-}
-function json(res, status, payload, headers = {}) {
-  res.writeHead(status, { "Content-Type": "application/json; charset=utf-8", ...headers });
-  res.end(JSON.stringify(payload));
-}
-function text(res, status, body, contentType = "text/plain; charset=utf-8") {
-  res.writeHead(status, { "Content-Type": contentType });
-  res.end(body);
-}
-function parseBody(req) {
-  return new Promise((resolve, reject) => {
-    let body = "";
-    req.on("data", c => {
-      body += c;
-      if (body.length > 1_000_000) req.destroy();
-    });
-    req.on("end", () => {
-      if (!body) return resolve({});
-      try { resolve(JSON.parse(body)); } catch (e) { reject(e); }
-    });
-  });
-}
-function randomId(bytes = 6) {
-  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  const buf = crypto.randomBytes(bytes);
-  return Array.from(buf, b => alphabet[b % alphabet.length]).join("");
-}
-function serialFromSku(sku = "ITEM") {
-  const safe = String(sku || "ITEM").toUpperCase().replace(/[^A-Z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 16);
-  return `COL-${safe || "ITEM"}-${randomId(4)}`;
-}
-function authCode() {
-  return randomId(9);
-}
-function immutablePayload(record) {
-  return [
-    record.id,
-    record.serial,
-    record.authCode,
-    record.sku || "",
-    record.productName || "",
-    record.material || "",
-    record.gemstone || "",
-    record.issuedAt || ""
-  ].join("|");
-}
-function signRecord(record) {
-  return crypto.createHmac("sha256", SIGNING_SECRET).update(immutablePayload(record)).digest("hex");
-}
-function verifySignature(record) {
-  if (!record.signature) return false;
-  const a = Buffer.from(record.signature, "hex");
-  const b = Buffer.from(signRecord(record), "hex");
-  return a.length === b.length && crypto.timingSafeEqual(a, b);
-}
-function adminAuthorized(req) {
-  return req.headers["x-admin-key"] === ADMIN_KEY;
-}
-function clientIp(req) {
-  const forwarded = String(req.headers["x-forwarded-for"] || "").split(",")[0].trim();
-  return forwarded || req.socket.remoteAddress || "unknown";
-}
-function privateScanFingerprint(ip) {
-  return crypto.createHmac("sha256", SIGNING_SECRET).update(ip).digest("hex").slice(0, 16);
-}
-function publicView(record) {
-  const now = Date.now();
-  const recent = (record.scanEvents || []).filter(x => now - new Date(x.at).getTime() <= 24 * 60 * 60 * 1000);
-  const unique = new Set(recent.map(x => x.fp)).size;
-  const anomaly = recent.length >= 20 || unique >= 6;
-  const sigOk = verifySignature(record);
-  const status = record.authStatus || "authentic";
+const pool = DATABASE_URL ? new Pool({ connectionString: DATABASE_URL }) : null;
 
-  return {
-    id: record.id,
-    serial: record.serial,
-    productName: record.productName,
-    collection: record.collection,
-    sku: record.sku,
-    material: record.material,
-    gemstone: record.gemstone,
-    gemstoneOrigin: record.gemstoneOrigin,
-    size: record.size,
-    issuedAt: record.issuedAt,
-    story: record.story,
-    careUrl: record.careUrl,
-    productUrl: record.productUrl,
-    passportUrl: `${PUBLIC_BASE_URL}/p/${record.id}`,
-    warranty: {
-      status: record.warrantyStatus || "active",
-      start: record.warrantyStart || "",
-      end: record.warrantyEnd || "",
-      notes: record.warrantyNotes || ""
-    },
-    authenticity: {
-      status,
-      signatureValid: sigOk,
-      anomaly,
-      scanCount: record.scanCount || 0,
-      lastScanAt: record.lastScanAt || null
-    }
-  };
+function publicBase(req) {
+  const railwayDomain = String(process.env.RAILWAY_PUBLIC_DOMAIN || '').trim();
+  if (railwayDomain) return `https://${railwayDomain.replace(/^https?:\/\//, '').replace(/\/$/, '')}`;
+  const configured = String(process.env.PUBLIC_BASE_URL || '').trim().replace(/\/$/, '');
+  const configuredIsLocal = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(configured);
+  if (configured && !(process.env.RAILWAY_ENVIRONMENT && configuredIsLocal)) return configured;
+  const proto = String(req.headers['x-forwarded-proto'] || 'http').split(',')[0].trim();
+  const host = String(req.headers['x-forwarded-host'] || req.headers.host || `localhost:${PORT}`).split(',')[0].trim();
+  return `${proto}://${host}`.replace(/\/$/, '');
 }
-function recordScan(record, req) {
-  const at = new Date().toISOString();
-  const fp = privateScanFingerprint(clientIp(req));
-  record.scanCount = (record.scanCount || 0) + 1;
-  record.lastScanAt = at;
-  record.scanEvents = [...(record.scanEvents || []), { at, fp }].slice(-80);
-}
-function serveFile(res, filePath) {
-  const ext = path.extname(filePath).toLowerCase();
-  const types = {
-    ".html": "text/html; charset=utf-8",
-    ".js": "application/javascript; charset=utf-8",
-    ".css": "text/css; charset=utf-8",
-    ".svg": "image/svg+xml",
-    ".png": "image/png",
-    ".jpg": "image/jpeg",
-    ".jpeg": "image/jpeg",
-    ".webp": "image/webp",
-    ".json": "application/json; charset=utf-8"
-  };
-  try {
-    const stat = fs.statSync(filePath);
-    if (!stat.isFile()) return false;
-    res.writeHead(200, { "Content-Type": types[ext] || "application/octet-stream" });
-    fs.createReadStream(filePath).pipe(res);
-    return true;
-  } catch { return false; }
-}
-function csvEscape(v) {
-  const s = String(v ?? "");
-  return `"${s.replace(/"/g, '""')}"`;
-}
-
-const server = http.createServer(async (req, res) => {
-  const url = new URL(req.url, PUBLIC_BASE_URL);
-  const pathname = decodeURIComponent(url.pathname);
-
-  // Public stable permalink used by both QR and NFC.
-  const pMatch = pathname.match(/^\/p\/([A-Z0-9_-]+)$/i);
-  if (req.method === "GET" && pMatch) {
-    const records = loadDb();
-    const record = records.find(r => r.id === pMatch[1]);
-    if (!record) return text(res, 404, "COLORA Product Passport not found.");
-    recordScan(record, req);
-    saveDb(records);
-    res.writeHead(302, { Location: `/passport.html?id=${encodeURIComponent(record.id)}` });
-    return res.end();
-  }
-
-  // Public passport API.
-  const passportMatch = pathname.match(/^\/api\/passport\/([A-Z0-9_-]+)$/i);
-  if (req.method === "GET" && passportMatch) {
-    const records = loadDb();
-    const record = records.find(r => r.id === passportMatch[1]);
-    if (!record) return json(res, 404, { error: "Passport not found" });
-    return json(res, 200, publicView(record));
-  }
-
-  // Admin endpoints
-  if (pathname.startsWith("/api/admin/") && !adminAuthorized(req)) {
-    return json(res, 401, { error: "Unauthorized. Set X-Admin-Key." });
-  }
-
-  if (req.method === "GET" && pathname === "/api/admin/products") {
-    return json(res, 200, loadDb());
-  }
-
-  if (req.method === "POST" && pathname === "/api/admin/products") {
-    try {
-      const input = await parseBody(req);
-      const records = loadDb();
-      const id = `P-${randomId(6)}`;
-      const record = {
-        id,
-        serial: input.serial || serialFromSku(input.sku),
-        authCode: authCode(),
-        productName: input.productName || "Untitled COLORA Piece",
-        collection: input.collection || "",
-        sku: input.sku || "",
-        material: input.material || "925 Sterling Silver",
-        gemstone: input.gemstone || "",
-        gemstoneOrigin: input.gemstoneOrigin || "",
-        size: input.size || "",
-        issuedAt: input.issuedAt || new Date().toISOString().slice(0, 10),
-        story: input.story || "",
-        productUrl: input.productUrl || "",
-        careUrl: input.careUrl || "",
-        warrantyStatus: input.warrantyStatus || "active",
-        warrantyStart: input.warrantyStart || new Date().toISOString().slice(0, 10),
-        warrantyEnd: input.warrantyEnd || "",
-        warrantyNotes: input.warrantyNotes || "",
-        authStatus: "authentic",
-        customer: {
-          name: input.customerName || "",
-          email: input.customerEmail || "",
-          phone: input.customerPhone || "",
-          consent: Boolean(input.customerConsent)
-        },
-        crm: {
-          tags: Array.isArray(input.crmTags) ? input.crmTags : [],
-          notes: input.crmNotes || ""
-        },
-        scanCount: 0,
-        scanEvents: [],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-      record.signature = signRecord(record);
-      records.unshift(record);
-      saveDb(records);
-      return json(res, 201, { ...record, passportUrl: `${PUBLIC_BASE_URL}/p/${record.id}` });
-    } catch {
-      return json(res, 400, { error: "Invalid JSON body" });
-    }
-  }
-
-  const updateMatch = pathname.match(/^\/api\/admin\/products\/([A-Z0-9_-]+)$/i);
-  if (req.method === "PATCH" && updateMatch) {
-    try {
-      const input = await parseBody(req);
-      const records = loadDb();
-      const i = records.findIndex(r => r.id === updateMatch[1]);
-      if (i < 0) return json(res, 404, { error: "Product not found" });
-      const r = records[i];
-
-      // Mutable operational fields; identity fields stay immutable by default.
-      const mutable = [
-        "productName", "collection", "story", "productUrl", "careUrl",
-        "warrantyStatus", "warrantyStart", "warrantyEnd", "warrantyNotes",
-        "authStatus"
-      ];
-      for (const k of mutable) if (k in input) r[k] = input[k];
-
-      if ("customer" in input && input.customer && typeof input.customer === "object") {
-        r.customer = { ...r.customer, ...input.customer };
-      }
-      if ("crm" in input && input.crm && typeof input.crm === "object") {
-        r.crm = { ...r.crm, ...input.crm };
-      }
-      r.updatedAt = new Date().toISOString();
-      records[i] = r;
-      saveDb(records);
-      return json(res, 200, { ...r, passportUrl: `${PUBLIC_BASE_URL}/p/${r.id}` });
-    } catch {
-      return json(res, 400, { error: "Invalid JSON body" });
-    }
-  }
-
-  if (req.method === "GET" && pathname === "/api/admin/export.csv") {
-    const rows = loadDb();
-    const headers = [
-      "id","serial","productName","collection","sku","material","gemstone",
-      "warrantyStatus","warrantyStart","warrantyEnd","authStatus","scanCount",
-      "customerName","customerEmail","customerPhone","customerConsent","crmTags","crmNotes"
-    ];
-    const lines = [headers.join(",")];
-    for (const r of rows) {
-      const vals = [
-        r.id,r.serial,r.productName,r.collection,r.sku,r.material,r.gemstone,
-        r.warrantyStatus,r.warrantyStart,r.warrantyEnd,r.authStatus,r.scanCount,
-        r.customer?.name,r.customer?.email,r.customer?.phone,r.customer?.consent,
-        (r.crm?.tags || []).join("|"),r.crm?.notes
-      ].map(csvEscape);
-      lines.push(vals.join(","));
-    }
-    res.writeHead(200, {
-      "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": 'attachment; filename="colora-product-passports.csv"'
-    });
-    return res.end(lines.join("\n"));
-  }
-
-  if (req.method === "GET" && pathname === "/api/config") {
-    return json(res, 200, { publicBaseUrl: PUBLIC_BASE_URL });
-  }
-
-  // Static files.
-  const safePath = pathname === "/" ? "/index.html" : pathname;
-  const filePath = path.join(PUBLIC_DIR, safePath);
-  if (!filePath.startsWith(PUBLIC_DIR)) return text(res, 403, "Forbidden");
-  if (serveFile(res, filePath)) return;
-  text(res, 404, "Not found");
-});
-
-server.listen(PORT, HOST, () => {
-  console.log(`COLORA Product Identity Platform running at ${PUBLIC_BASE_URL}`);
-  console.log(`Admin key: ${ADMIN_KEY === "change-me-in-production" ? "DEV DEFAULT — CHANGE IT" : "configured"}`);
-});
+function json(res, status, payload, headers = {}) { res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', ...headers }); res.end(JSON.stringify(payload)); }
+function text(res, status, body, contentType = 'text/plain; charset=utf-8') { res.writeHead(status, { 'Content-Type': contentType }); res.end(body); }
+function parseBody(req) { return new Promise((resolve, reject) => { let body=''; req.on('data', c => { body += c; if (body.length > 1_000_000) req.destroy(); }); req.on('end', () => { if (!body) return resolve({}); try { resolve(JSON.parse(body)); } catch(e) { reject(e); } }); }); }
+function randomId(bytes = 6) { const alphabet='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; const buf=crypto.randomBytes(bytes); return Array.from(buf,b=>alphabet[b%alphabet.length]).join(''); }
+function serialFromSku(sku='ITEM'){ const safe=String(sku||'ITEM').toUpperCase().replace(/[^A-Z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,16); return `COL-${safe||'ITEM'}-${randomId(4)}`; }
+function authCode(){ return randomId(9); }
+function immutablePayload(r){ return [r.id,r.serial,r.authCode,r.sku||'',r.productName||'',r.material||'',r.gemstone||'',r.issuedAt||''].join('|'); }
+function signRecord(r){ return crypto.createHmac('sha256',SIGNING_SECRET).update(immutablePayload(r)).digest('hex'); }
+function verifySignature(r){ try{ if(!r.signature) return false; const a=Buffer.from(r.signature,'hex'); const b=Buffer.from(signRecord(r),'hex'); return a.length===b.length && crypto.timingSafeEqual(a,b);}catch{return false;} }
+function adminAuthorized(req){ return req.headers['x-admin-key']===ADMIN_KEY; }
+function clientIp(req){ const f=String(req.headers['x-forwarded-for']||'').split(',')[0].trim(); return f||req.socket.remoteAddress||'unknown'; }
+function privateScanFingerprint(ip){ return crypto.createHmac('sha256',SIGNING_SECRET).update(ip).digest('hex').slice(0,16); }
+function loadJsonDb(){ try{return JSON.parse(fs.readFileSync(DB_FILE,'utf8'));}catch{return [];} }
+function saveJsonDb(records){ fs.writeFileSync(DB_FILE,JSON.stringify(records,null,2),'utf8'); }
+function rowToRecord(row){ if(!row)return null; return { id:row.id, serial:row.serial, authCode:row.auth_code, productName:row.product_name, collection:row.collection||'', sku:row.sku||'', material:row.material||'', gemstone:row.gemstone||'', gemstoneOrigin:row.gemstone_origin||'', size:row.size||'', issuedAt:row.issued_at?String(row.issued_at).slice(0,10):'', story:row.story||'', productUrl:row.product_url||'', careUrl:row.care_url||'', warrantyStatus:row.warranty_status||'active', warrantyStart:row.warranty_start?String(row.warranty_start).slice(0,10):'', warrantyEnd:row.warranty_end?String(row.warranty_end).slice(0,10):'', warrantyNotes:row.warranty_notes||'', authStatus:row.auth_status||'authentic', customer:row.customer||{}, crm:row.crm||{}, signature:row.signature||'', scanCount:Number(row.scan_count||0), lastScanAt:row.last_scan_at||null, createdAt:row.created_at||null, updatedAt:row.updated_at||null }; }
+async function initPostgres(){ if(!pool)return; await pool.query(`CREATE TABLE IF NOT EXISTS products (id TEXT PRIMARY KEY,serial TEXT UNIQUE NOT NULL,auth_code TEXT NOT NULL,product_name TEXT NOT NULL,collection TEXT DEFAULT '',sku TEXT DEFAULT '',material TEXT DEFAULT '',gemstone TEXT DEFAULT '',gemstone_origin TEXT DEFAULT '',size TEXT DEFAULT '',issued_at DATE,story TEXT DEFAULT '',product_url TEXT DEFAULT '',care_url TEXT DEFAULT '',warranty_status TEXT DEFAULT 'active',warranty_start DATE,warranty_end DATE,warranty_notes TEXT DEFAULT '',auth_status TEXT DEFAULT 'authentic',customer JSONB NOT NULL DEFAULT '{}'::jsonb,crm JSONB NOT NULL DEFAULT '{}'::jsonb,signature TEXT NOT NULL,scan_count INTEGER NOT NULL DEFAULT 0,last_scan_at TIMESTAMPTZ,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()); CREATE TABLE IF NOT EXISTS scan_events (id BIGSERIAL PRIMARY KEY,product_id TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,at TIMESTAMPTZ NOT NULL DEFAULT NOW(),fp TEXT NOT NULL); CREATE INDEX IF NOT EXISTS idx_scan_events_product_time ON scan_events(product_id,at DESC); CREATE INDEX IF NOT EXISTS idx_products_sku ON products(sku);`); const count=Number((await pool.query('SELECT COUNT(*)::int AS count FROM products')).rows[0].count||0); if(count===0){ const legacy=loadJsonDb(); for(const record of legacy){ try{await pgInsert(record);}catch(e){console.warn('Legacy migration skipped:',record.id,e.message);} } if(legacy.length) console.log(`Migrated up to ${legacy.length} legacy JSON product(s) into PostgreSQL.`); } }
+async function pgInsert(record){ await pool.query(`INSERT INTO products (id,serial,auth_code,product_name,collection,sku,material,gemstone,gemstone_origin,size,issued_at,story,product_url,care_url,warranty_status,warranty_start,warranty_end,warranty_notes,auth_status,customer,crm,signature,scan_count,last_scan_at,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,NULLIF($11,'')::date,$12,$13,$14,$15,NULLIF($16,'')::date,NULLIF($17,'')::date,$18,$19,$20::jsonb,$21::jsonb,$22,$23,$24,$25,$26)`,[record.id,record.serial,record.authCode,record.productName,record.collection||'',record.sku||'',record.material||'',record.gemstone||'',record.gemstoneOrigin||'',record.size||'',record.issuedAt||'',record.story||'',record.productUrl||'',record.careUrl||'',record.warrantyStatus||'active',record.warrantyStart||'',record.warrantyEnd||'',record.warrantyNotes||'',record.authStatus||'authentic',JSON.stringify(record.customer||{}),JSON.stringify(record.crm||{}),record.signature,Number(record.scanCount||0),record.lastScanAt||null,record.createdAt||new Date().toISOString(),record.updatedAt||new Date().toISOString()]); if(Array.isArray(record.scanEvents)){ for(const e of record.scanEvents.slice(-80)){ if(e?.at&&e?.fp) await pool.query('INSERT INTO scan_events(product_id,at,fp) VALUES($1,$2,$3)',[record.id,e.at,e.fp]); } } }
+async function listRecords(){ if(!pool)return loadJsonDb(); const {rows}=await pool.query('SELECT * FROM products ORDER BY created_at DESC'); return rows.map(rowToRecord); }
+async function getRecord(id){ if(!pool)return loadJsonDb().find(r=>r.id===id)||null; const {rows}=await pool.query('SELECT * FROM products WHERE id=$1',[id]); return rowToRecord(rows[0]); }
+async function createRecord(record){ if(!pool){ const records=loadJsonDb(); records.unshift(record); saveJsonDb(records); return; } await pgInsert(record); }
+async function updateRecord(record){ record.signature=signRecord(record); record.updatedAt=new Date().toISOString(); if(!pool){ const records=loadJsonDb(); const i=records.findIndex(r=>r.id===record.id); if(i>=0) records[i]=record; saveJsonDb(records); return; } await pool.query(`UPDATE products SET product_name=$2,collection=$3,story=$4,product_url=$5,care_url=$6,warranty_status=$7,warranty_start=NULLIF($8,'')::date,warranty_end=NULLIF($9,'')::date,warranty_notes=$10,auth_status=$11,customer=$12::jsonb,crm=$13::jsonb,signature=$14,updated_at=$15 WHERE id=$1`,[record.id,record.productName,record.collection||'',record.story||'',record.productUrl||'',record.careUrl||'',record.warrantyStatus||'active',record.warrantyStart||'',record.warrantyEnd||'',record.warrantyNotes||'',record.authStatus||'authentic',JSON.stringify(record.customer||{}),JSON.stringify(record.crm||{}),record.signature,record.updatedAt]); }
+async function recordScan(id,req){ const at=new Date().toISOString(); const fp=privateScanFingerprint(clientIp(req)); if(!pool){ const records=loadJsonDb(); const i=records.findIndex(r=>r.id===id); if(i<0)return; records[i].scanCount=(records[i].scanCount||0)+1; records[i].lastScanAt=at; records[i].scanEvents=[...(records[i].scanEvents||[]),{at,fp}].slice(-80); saveJsonDb(records); return; } await pool.query('BEGIN'); try{ await pool.query('UPDATE products SET scan_count=scan_count+1,last_scan_at=$2 WHERE id=$1',[id,at]); await pool.query('INSERT INTO scan_events(product_id,at,fp) VALUES($1,$2,$3)',[id,at,fp]); await pool.query('COMMIT'); }catch(e){ await pool.query('ROLLBACK'); throw e; } }
+async function recentStats(id,record){ if(!pool){ const now=Date.now(); const recent=(record.scanEvents||[]).filter(x=>now-new Date(x.at).getTime()<=86400000); return {count:recent.length,unique:new Set(recent.map(x=>x.fp)).size}; } const {rows}=await pool.query(`SELECT COUNT(*)::int AS count,COUNT(DISTINCT fp)::int AS unique FROM scan_events WHERE product_id=$1 AND at>NOW()-INTERVAL '24 hours'`,[id]); return {count:Number(rows[0].count||0),unique:Number(rows[0].unique||0)}; }
+async function publicView(record,req){ const stats=await recentStats(record.id,record); const anomaly=stats.count>=20||stats.unique>=6; return { id:record.id,serial:record.serial,productName:record.productName,collection:record.collection,sku:record.sku,material:record.material,gemstone:record.gemstone,gemstoneOrigin:record.gemstoneOrigin,size:record.size,issuedAt:record.issuedAt,story:record.story,careUrl:record.careUrl,productUrl:record.productUrl,passportUrl:`${publicBase(req)}/p/${record.id}`,warranty:{status:record.warrantyStatus||'active',start:record.warrantyStart||'',end:record.warrantyEnd||'',notes:record.warrantyNotes||''},authenticity:{status:record.authStatus||'authentic',signatureValid:verifySignature(record),anomaly,scanCount:record.scanCount||0,lastScanAt:record.lastScanAt||null}}; }
+function serveFile(res,filePath){ const ext=path.extname(filePath).toLowerCase(); const types={'.html':'text/html; charset=utf-8','.js':'application/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.webp':'image/webp','.json':'application/json; charset=utf-8'}; try{const stat=fs.statSync(filePath);if(!stat.isFile())return false;res.writeHead(200,{'Content-Type':types[ext]||'application/octet-stream'});fs.createReadStream(filePath).pipe(res);return true;}catch{return false;} }
+function csvEscape(v){const s=String(v??'');return `"${s.replace(/"/g,'""')}"`;}
+const server=http.createServer(async(req,res)=>{ try{ const base=publicBase(req); const url=new URL(req.url,base); const pathname=decodeURIComponent(url.pathname); if(req.method==='GET'&&pathname==='/health'){ if(pool)await pool.query('SELECT 1'); return json(res,200,{ok:true,database:pool?'postgresql':'json-fallback',publicBaseUrl:base}); } const pMatch=pathname.match(/^\/p\/([A-Z0-9_-]+)$/i); if(req.method==='GET'&&pMatch){ const record=await getRecord(pMatch[1]); if(!record)return text(res,404,'COLORA Product Passport not found.'); await recordScan(record.id,req); res.writeHead(302,{Location:`/passport.html?id=${encodeURIComponent(record.id)}`}); return res.end(); } const passportMatch=pathname.match(/^\/api\/passport\/([A-Z0-9_-]+)$/i); if(req.method==='GET'&&passportMatch){ const record=await getRecord(passportMatch[1]); if(!record)return json(res,404,{error:'Passport not found'}); return json(res,200,await publicView(record,req)); } if(pathname.startsWith('/api/admin/')&&!adminAuthorized(req)) return json(res,401,{error:'Unauthorized. Check the Admin API key.'}); if(req.method==='GET'&&pathname==='/api/admin/products') return json(res,200,await listRecords()); if(req.method==='POST'&&pathname==='/api/admin/products'){ const input=await parseBody(req); const now=new Date().toISOString(); const record={id:`P-${randomId(6)}`,serial:input.serial||serialFromSku(input.sku),authCode:authCode(),productName:input.productName||'Untitled COLORA Piece',collection:input.collection||'',sku:input.sku||'',material:input.material||'925 Sterling Silver',gemstone:input.gemstone||'',gemstoneOrigin:input.gemstoneOrigin||'',size:input.size||'',issuedAt:input.issuedAt||now.slice(0,10),story:input.story||'',productUrl:input.productUrl||'',careUrl:input.careUrl||'',warrantyStatus:input.warrantyStatus||'active',warrantyStart:input.warrantyStart||now.slice(0,10),warrantyEnd:input.warrantyEnd||'',warrantyNotes:input.warrantyNotes||'',authStatus:'authentic',customer:{name:input.customerName||'',email:input.customerEmail||'',phone:input.customerPhone||'',consent:Boolean(input.customerConsent)},crm:{tags:Array.isArray(input.crmTags)?input.crmTags:[],notes:input.crmNotes||''},scanCount:0,scanEvents:[],createdAt:now,updatedAt:now}; record.signature=signRecord(record); await createRecord(record); return json(res,201,{...record,passportUrl:`${base}/p/${record.id}`}); } const updateMatch=pathname.match(/^\/api\/admin\/products\/([A-Z0-9_-]+)$/i); if(req.method==='PATCH'&&updateMatch){ const input=await parseBody(req); const record=await getRecord(updateMatch[1]); if(!record)return json(res,404,{error:'Product not found'}); const mutable=['productName','collection','story','productUrl','careUrl','warrantyStatus','warrantyStart','warrantyEnd','warrantyNotes','authStatus']; for(const key of mutable) if(key in input) record[key]=input[key]; if(input.customer&&typeof input.customer==='object') record.customer={...record.customer,...input.customer}; if(input.crm&&typeof input.crm==='object') record.crm={...record.crm,...input.crm}; await updateRecord(record); return json(res,200,{...record,passportUrl:`${base}/p/${record.id}`}); } if(req.method==='GET'&&pathname==='/api/admin/export.csv'){ const rows=await listRecords(); const headers=['id','serial','productName','collection','sku','material','gemstone','warrantyStatus','warrantyStart','warrantyEnd','authStatus','scanCount','customerName','customerEmail','customerPhone','customerConsent','crmTags','crmNotes']; const lines=[headers.join(',')]; for(const r of rows){ lines.push([r.id,r.serial,r.productName,r.collection,r.sku,r.material,r.gemstone,r.warrantyStatus,r.warrantyStart,r.warrantyEnd,r.authStatus,r.scanCount,r.customer?.name,r.customer?.email,r.customer?.phone,r.customer?.consent,(r.crm?.tags||[]).join('|'),r.crm?.notes].map(csvEscape).join(',')); } res.writeHead(200,{'Content-Type':'text/csv; charset=utf-8','Content-Disposition':'attachment; filename="colora-product-passports.csv"'}); return res.end(lines.join('\n')); } if(req.method==='GET'&&pathname==='/api/config') return json(res,200,{publicBaseUrl:base,database:pool?'postgresql':'json-fallback'}); const safePath=pathname==='/'?'/index.html':pathname; const filePath=path.join(PUBLIC_DIR,safePath); if(!filePath.startsWith(PUBLIC_DIR))return text(res,403,'Forbidden'); if(serveFile(res,filePath))return; return text(res,404,'Not found'); }catch(error){ console.error(error); return json(res,500,{error:'Server error',detail:process.env.NODE_ENV==='production'?undefined:error.message}); } });
+(async()=>{ try{ await initPostgres(); server.listen(PORT,HOST,()=>{ console.log(`COLORA Product Identity Platform listening on ${HOST}:${PORT}`); console.log(`Database mode: ${pool?'PostgreSQL':'JSON fallback — add DATABASE_URL to switch'}`); console.log(`Admin key: ${ADMIN_KEY==='change-me-in-production'?'DEV DEFAULT — CHANGE IT':'configured'}`); }); }catch(error){ console.error('Database initialization failed:',error); process.exit(1); } })();
