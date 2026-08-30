@@ -2,14 +2,21 @@
 <html lang="vi">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#002451">
 <title>COLORA Product Passport</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,400;6..96,500;6..96,600&family=Open+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
 <style>
 :root{--bg:#f4f1eb;--ink:#151515;--muted:#77716a;--line:#e3ddd4;--ok:#176b43;--warn:#9a5c12;--bad:#b42318}
 *{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;background:radial-gradient(circle at top,#fff 0,#f3f0e9 62%);color:var(--ink)}
 .shell{width:min(820px,calc(100% - 28px));margin:auto;padding:30px 0 60px}.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}.brand{display:flex;align-items:center;gap:12px}.mark{width:42px;height:42px;border-radius:14px;background:#111;color:#fff;display:grid;place-items:center;font:700 24px Georgia}.brand b{font-size:18px}.verified{padding:8px 11px;border-radius:999px;background:#eaf6ef;color:var(--ok);font-size:12px;font-weight:800}
 .card{background:rgba(255,255,255,.95);border:1px solid white;box-shadow:0 18px 60px rgba(20,25,30,.08);border-radius:28px;padding:28px}.eyebrow{font-size:11px;text-transform:uppercase;letter-spacing:.14em;color:var(--muted);font-weight:800}h1{font-family:Georgia,serif;font-size:36px;margin:9px 0 7px}.story{font-size:15px;line-height:1.75;color:#494641;white-space:pre-line}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:22px}.item{border:1px solid var(--line);border-radius:16px;padding:14px}.item span{display:block;font-size:11px;color:var(--muted);margin-bottom:5px}.item b{font-size:14px}.full{grid-column:1/-1}.status{margin-top:18px;border-radius:18px;padding:16px;background:#f2f8f4;color:var(--ok);line-height:1.55}.status.warn{background:#fff6e9;color:var(--warn)}.status.bad{background:#fff0ef;color:var(--bad)}.links{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}.btn{display:inline-block;text-decoration:none;border:1px solid var(--line);border-radius:12px;padding:10px 12px;color:var(--ink);font-weight:750;font-size:13px;background:#fff}.foot{text-align:center;color:var(--muted);font-size:11px;margin-top:18px;line-height:1.5}
 @media(max-width:600px){.grid{grid-template-columns:1fr}.full{grid-column:auto}.card{padding:20px}h1{font-size:30px}.top{align-items:flex-start}}
-</style></head>
+</style>
+<link rel="stylesheet" href="/brand.css">
+</head>
 <body><div class="shell">
 <div class="top"><div class="brand"><div class="mark">C</div><div><b>COLORA</b><div style="font-size:11px;color:#777">Digital Product Passport</div></div></div><div class="verified" id="badge">Checking...</div></div>
 <div class="card" id="card"><div class="eyebrow">Product Passport</div><h1>Đang tải...</h1></div>
@@ -21,8 +28,8 @@ const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&
 fetch("/api/passport/"+encodeURIComponent(id||"")).then(async r=>{const d=await r.json();if(!r.ok)throw new Error(d.error||"Not found");return d}).then(d=>{
  const a=d.authenticity||{}, good=a.status==="authentic"&&a.signatureValid&&!a.anomaly;
  $("badge").textContent=good?"Verified COLORA Identity":a.status==="revoked"?"Revoked":"Review identity";
- $("badge").style.background=good?"#eaf6ef":a.status==="revoked"?"#fff0ef":"#fff6e9";
- $("badge").style.color=good?"#176b43":a.status==="revoked"?"#b42318":"#9a5c12";
+ $("badge").style.background=good?"rgba(15,104,87,.10)":a.status==="revoked"?"rgba(142,47,42,.09)":"rgba(176,138,91,.15)";
+ $("badge").style.color=good?"#0F6857":a.status==="revoked"?"#8E2F2A":"#7A5729";
  const cls=good?"":a.status==="revoked"?"bad":"warn";
  $("card").innerHTML=`
   <div class="eyebrow">${esc(d.collection||"COLORA")}</div>
