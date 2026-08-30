@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>COLORA Product Identity Console</title>
+  <script src="https://unpkg.com/qr-code-styling@1.6.0-rc.1/lib/qr-code-styling.js"></script>
+  <style>
+    :root{--bg:#f4f1eb;--card:#fff;--ink:#151515;--muted:#73706b;--line:#e5dfd5;--brand:#245f73;--soft:#edf4f6;--ok:#1c7a4b;--warn:#a15f13;--bad:#b42318}
+    *{box-sizing:border-box} body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;background:linear-gradient(135deg,#f8f6f1,#eef4f5);color:var(--ink)}
+    .shell{width:min(1380px,calc(100% - 28px));margin:auto;padding:28px 0 56px}
+    header{display:flex;justify-content:space-between;align-items:center;gap:18px;margin-bottom:20px}.brand{display:flex;align-items:center;gap:14px}.mark{width:48px;height:48px;border-radius:16px;background:#111;color:#fff;display:grid;place-items:center;font:700 28px Georgia}.brand h1{margin:0;font-size:24px}.brand p{margin:3px 0 0;color:var(--muted);font-size:13px}
+    .keybox{display:flex;gap:8px;align-items:center}.keybox input{width:220px}
+    .layout{display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:20px}.card{background:rgba(255,255,255,.94);border:1px solid #fff;box-shadow:0 18px 55px rgba(30,35,40,.08);border-radius:24px;padding:22px}
+    h2{font-size:18px;margin:0 0 6px}.sub{font-size:13px;color:var(--muted);line-height:1.55;margin:0 0 20px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.field{margin-bottom:12px}.full{grid-column:1/-1}label{display:block;font-size:12px;font-weight:700;margin-bottom:7px}
+    input,textarea,select{width:100%;border:1px solid var(--line);border-radius:12px;background:#fff;padding:11px 12px;font:inherit;outline:none}textarea{min-height:86px;resize:vertical}input:focus,textarea:focus,select:focus{border-color:#76a7b7;box-shadow:0 0 0 3px rgba(36,95,115,.09)}
+    .btn{border:0;border-radius:12px;padding:11px 14px;font-weight:750;cursor:pointer}.primary{background:#111;color:#fff}.soft{background:var(--soft);color:var(--brand)}.outline{background:#fff;border:1px solid var(--line)}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+    .preview{position:sticky;top:18px}.qrbox{display:flex;justify-content:center;align-items:center;min-height:360px;border:1px dashed var(--line);border-radius:20px;background:#fff;padding:24px;overflow:hidden}.qrbox svg,.qrbox canvas{display:block;width:min(100%,340px)!important;height:auto!important;max-width:340px!important}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;word-break:break-all;background:#f8f7f4;border-radius:12px;padding:10px;margin-top:10px}.status{margin-top:12px;padding:12px;border-radius:14px;background:#f7faf8;font-size:13px;line-height:1.5}.status.warn{background:#fff6e9;color:var(--warn)}.status.bad{background:#fff0ef;color:var(--bad)}
+    .dbbadge{display:inline-flex;align-items:center;gap:7px;padding:6px 9px;border-radius:999px;background:#f2f0ec;font-size:11px;font-weight:750;margin-bottom:12px}.dot{width:8px;height:8px;border-radius:50%;background:#aaa}.dot.ok{background:var(--ok)}.dot.warn{background:var(--warn)}
+    .tableCard{margin-top:20px}.tableWrap{overflow:auto}table{border-collapse:collapse;width:100%;min-width:1050px}th,td{text-align:left;padding:11px 10px;border-bottom:1px solid var(--line);font-size:12px;vertical-align:top}th{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.04em}.pill{display:inline-block;padding:4px 8px;border-radius:999px;background:#edf7f0;color:var(--ok);font-weight:700}.pill.warn{background:#fff5e9;color:var(--warn)}.pill.bad{background:#fff0ef;color:var(--bad)}
+    .tabs{display:flex;gap:8px;margin-bottom:16px}.tab{padding:9px 11px;border-radius:999px;background:#f2f0ec;border:0;cursor:pointer;font-weight:700}.tab.active{background:#111;color:#fff}.section{display:none}.section.active{display:block}.note{font-size:12px;line-height:1.55;color:var(--muted);background:#faf8f4;border:1px solid var(--line);border-radius:14px;padding:12px;margin-top:10px}
+    @media(max-width:980px){.layout{grid-template-columns:1fr}.preview{position:static}.keybox{width:100%}header{align-items:flex-start;flex-direction:column}} @media(max-width:620px){.grid{grid-template-columns:1fr}.keybox{flex-direction:column;align-items:stretch}.keybox input{width:100%}.qrbox{min-height:300px}}
+  </style>
+</head>
+<body>
+<div class="shell">
+  <header>
+    <div class="brand"><div class="mark">C</div><div><h1>COLORA Product Identity Console</h1><p>Passport · Warranty · NFC · CRM · Authentication</p></div></div>
+    <div class="keybox"><input id="adminKey" type="password" placeholder="Admin API key"><button class="btn outline" id="reloadBtn">Reload</button></div>
+  </header>
+  <div class="layout">
+    <div class="card">
+      <div class="tabs"><button class="tab active" data-tab="identity">Identity</button><button class="tab" data-tab="warranty">Warranty</button><button class="tab" data-tab="crm">CRM</button></div>
+      <form id="createForm">
+        <div id="identity" class="section active">
+          <h2>Tạo Product Passport</h2><p class="sub">Mỗi sản phẩm nhận ID, serial và auth code riêng. QR/NFC trỏ tới permalink cố định của COLORA.</p>
+          <div class="grid">
+            <div class="field"><label>Tên sản phẩm</label><input name="productName" required placeholder="Soul's Reflection Ring"></div>
+            <div class="field"><label>Collection</label><input name="collection" placeholder="AURA LIBERTÉ"></div>
+            <div class="field"><label>SKU</label><input name="sku" placeholder="AL-R01-BL"></div>
+            <div class="field"><label>Serial tùy chọn</label><input name="serial" placeholder="Để trống để tự tạo"></div>
+            <div class="field"><label>Chất liệu</label><input name="material" value="925 Sterling Silver / Rhodium"></div>
+            <div class="field"><label>Gemstone</label><input name="gemstone" placeholder="Blue sapphire / Topaz / ..."></div>
+            <div class="field"><label>Nguồn gốc đá</label><input name="gemstoneOrigin" placeholder="Supplier / country / batch"></div>
+            <div class="field"><label>Kích thước</label><input name="size" placeholder="US 6 / stone 5.4×3.5 mm"></div>
+            <div class="field"><label>Ngày phát hành</label><input name="issuedAt" type="date"></div>
+            <div class="field"><label>Product URL</label><input name="productUrl" placeholder="https://colora.vn/products/..."></div>
+            <div class="field full"><label>Product story</label><textarea name="story" placeholder="Câu chuyện ngắn hiển thị trong Product Passport"></textarea></div>
+            <div class="field full"><label>Care guide URL</label><input name="careUrl" placeholder="https://colora.vn/care"></div>
+          </div>
+        </div>
+        <div id="warranty" class="section"><h2>Warranty</h2><p class="sub">Bảo hành được liên kết trực tiếp với Product Passport.</p><div class="grid">
+          <div class="field"><label>Trạng thái</label><select name="warrantyStatus"><option value="active">Active</option><option value="pending">Pending</option><option value="expired">Expired</option><option value="void">Void</option></select></div>
+          <div class="field"><label>Ngày bắt đầu</label><input name="warrantyStart" type="date"></div><div class="field"><label>Ngày kết thúc</label><input name="warrantyEnd" type="date"></div>
+          <div class="field full"><label>Ghi chú bảo hành</label><textarea name="warrantyNotes"></textarea></div></div></div>
+        <div id="crm" class="section"><h2>CRM / Ownership</h2><p class="sub">Dữ liệu khách hàng chỉ nằm trong admin, không xuất hiện trên Passport công khai.</p><div class="grid">
+          <div class="field"><label>Tên khách hàng</label><input name="customerName"></div><div class="field"><label>Email</label><input name="customerEmail" type="email"></div>
+          <div class="field"><label>Điện thoại</label><input name="customerPhone"></div><div class="field"><label>CRM tags</label><input name="crmTags" placeholder="VIP, Birthday, Blue-lover"></div>
+          <div class="field full"><label><input style="width:auto;margin-right:6px" name="customerConsent" type="checkbox">Khách hàng đã đồng ý cho COLORA lưu/liên hệ theo chính sách dữ liệu</label></div>
+          <div class="field full"><label>CRM notes</label><textarea name="crmNotes"></textarea></div></div></div>
+        <div class="actions"><button class="btn primary" type="submit">Tạo Identity + QR</button><button class="btn outline" type="reset">Reset</button></div>
+      </form>
+      <div class="note">QR đang dùng “Safe scan mode”: module vuông, finder pattern chuẩn, quiet zone rộng và logo nhỏ hơn để ưu tiên khả năng quét.</div>
+    </div>
+    <aside class="card preview">
+      <h2>QR / NFC Preview</h2><p class="sub">Cùng một stable URL dùng cho cả QR và NFC.</p>
+      <div class="dbbadge"><span id="dbDot" class="dot"></span><span id="dbMode">Checking database…</span></div>
+      <div id="qr" class="qrbox"></div>
+      <div class="mono" id="stableUrl">Tạo hoặc chọn Product Passport để nhận permalink.</div>
+      <div class="actions"><button class="btn primary" id="downloadPng" type="button">Download PNG</button><button class="btn outline" id="downloadSvg" type="button">Download SVG</button><button class="btn outline" id="testLink" type="button">Test link</button><button class="btn soft" id="writeNfc" type="button">Write NFC</button></div>
+      <div class="field" style="margin-top:12px"><label>Logo / ký hiệu COLORA</label><input id="logoFile" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml"></div>
+      <div class="status" id="status"><b>Chưa có identity.</b><br>QR sử dụng Error Correction H.</div>
+    </aside>
+  </div>
+  <div class="card tableCard"><div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap"><div><h2>Product Identity Registry</h2><p class="sub">Danh sách passport, warranty, scan count và CRM linkage.</p></div><div class="actions"><button class="btn outline" id="exportBtn">Export CRM CSV</button></div></div>
+    <div class="tableWrap"><table><thead><tr><th>Identity</th><th>Product</th><th>Warranty</th><th>Authentication</th><th>Scans</th><th>Owner</th><th>Passport</th></tr></thead><tbody id="tbody"></tbody></table></div>
+  </div>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const defaultLogoSvg=`<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512"><rect width="512" height="512" rx="120" fill="#151515"/><text x="256" y="338" text-anchor="middle" font-family="Georgia,serif" font-size="300" font-weight="700" fill="white">C</text></svg>`;
+let logo="data:image/svg+xml;base64,"+btoa(unescape(encodeURIComponent(defaultLogoSvg)));
+let currentUrl="";
+const savedKey=localStorage.getItem("coloraAdminKey")||""; $("adminKey").value=savedKey; $("adminKey").addEventListener("change",()=>localStorage.setItem("coloraAdminKey",$("adminKey").value));
+let qr=new QRCodeStyling({width:512,height:512,type:"svg",data:"https://colora.vn/",image:logo,margin:40,qrOptions:{errorCorrectionLevel:"H"},imageOptions:{imageSize:.12,margin:10,hideBackgroundDots:true},dotsOptions:{type:"square",color:"#111111"},cornersSquareOptions:{type:"square",color:"#111111"},cornersDotOptions:{type:"square",color:"#111111"},backgroundOptions:{color:"#ffffff"}}); qr.append($("qr"));
+function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
+function api(path,opts={}){const headers={"Content-Type":"application/json","X-Admin-Key":$("adminKey").value,...(opts.headers||{})};return fetch(path,{...opts,headers}).then(async r=>{const b=await r.json().catch(()=>({}));if(!r.ok)throw new Error(b.error||`HTTP ${r.status}`);return b})}
+function formJson(form){const fd=new FormData(form),o={};for(const[k,v]of fd.entries())o[k]=v;o.customerConsent=fd.has("customerConsent");o.crmTags=String(o.crmTags||"").split(",").map(s=>s.trim()).filter(Boolean);return o}
+function normalizePassportUrl(url){
+  if(!url)return "";
+  try{
+    const u=new URL(url,location.origin);
+    if(["localhost","127.0.0.1","0.0.0.0"].includes(u.hostname)){
+      return `${location.origin}${u.pathname}${u.search}${u.hash}`;
+    }
+    if(location.protocol==="https:"&&u.protocol==="http:"&&u.hostname===location.hostname)u.protocol="https:";
+    return u.toString().replace(/\/$/,"");
+  }catch{return url}
+}
+function setQr(url){
+  const safeUrl=normalizePassportUrl(url);
+  currentUrl=safeUrl;
+  if(!safeUrl)return;
+  qr.update({data:safeUrl,image:logo});
+  $("stableUrl").textContent=safeUrl;
+  const local=/localhost|127\.0\.0\.1|0\.0\.0\.0/i.test(safeUrl);
+  $("status").className="status"+(local?" bad":"");
+  $("status").innerHTML=local
+    ? `<b>QR chưa dùng được trên điện thoại.</b><br>Link vẫn là local URL.`
+    : `<b>QR ready.</b><br>Link công khai: ${esc(safeUrl)}<br><small>Hãy bấm Test link trước khi in hàng loạt.</small>`;
+}
+function pill(status){const s=String(status||"").toLowerCase(),cls=["revoked","void","expired"].includes(s)?"bad":["pending","suspicious"].includes(s)?"warn":"";return `<span class="pill ${cls}">${esc(status||"—")}</span>`}
+async function config(){try{const c=await fetch("/api/config").then(r=>r.json());const pg=c.database==="postgresql";$("dbMode").textContent=pg?"PostgreSQL connected":"JSON fallback — add PostgreSQL";$("dbDot").className="dot "+(pg?"ok":"warn");c.publicBaseUrl=normalizePassportUrl(c.publicBaseUrl||location.origin);return c}catch{$("dbMode").textContent="Database status unavailable";return {publicBaseUrl:location.origin}}}
+async function load(){try{await config();const rows=await api("/api/admin/products");$("tbody").innerHTML=rows.map(r=>`<tr><td><b>${esc(r.serial)}</b><br><span style="color:#777">${esc(r.id)}</span></td><td><b>${esc(r.productName)}</b><br>${esc(r.sku||"")}</td><td>${pill(r.warrantyStatus)}<br>${esc(r.warrantyEnd||"")}</td><td>${pill(r.authStatus||"authentic")}<br><span style="color:#777">${r.signature?"server-signed":"unsigned"}</span></td><td><b>${r.scanCount||0}</b><br><span style="color:#777">${esc(r.lastScanAt||"")}</span></td><td>${esc(r.customer?.name||"—")}<br><span style="color:#777">${esc(r.customer?.email||"")}</span></td><td><a href="/p/${encodeURIComponent(r.id)}" target="_blank">Open passport</a><br><button class="btn outline" style="padding:6px 8px;margin-top:5px" onclick="selectRecord('${r.id}')">QR/NFC</button></td></tr>`).join("")||`<tr><td colspan="7">Chưa có Product Passport.</td></tr>`}catch(e){$("status").className="status bad";$("status").innerHTML=`<b>Lỗi admin:</b> ${esc(e.message)}`}}
+window.selectRecord=async id=>{try{const rows=await api("/api/admin/products"),r=rows.find(x=>x.id===id);if(!r)return;const c=await config();setQr(`${c.publicBaseUrl}/p/${r.id}`);$("status").className="status";$("status").innerHTML=`<b>${esc(r.serial)}</b><br>${esc(r.productName)}<br>Scans: ${r.scanCount||0}`;window.scrollTo({top:0,behavior:"smooth"})}catch(e){alert(e.message)}};
+document.querySelectorAll(".tab").forEach(btn=>btn.onclick=()=>{document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));document.querySelectorAll(".section").forEach(x=>x.classList.remove("active"));btn.classList.add("active");$(btn.dataset.tab).classList.add("active")});
+$("createForm").addEventListener("submit",async e=>{e.preventDefault();try{const r=await api("/api/admin/products",{method:"POST",body:JSON.stringify(formJson(e.target))});setQr(r.passportUrl);$("status").className="status";$("status").innerHTML=`<b>Identity created.</b><br>${esc(r.serial)}<br>Auth code: ${esc(r.authCode)}<br>Server signature: active`;await load()}catch(err){$("status").className="status bad";$("status").innerHTML=`<b>Không thể tạo:</b> ${esc(err.message)}`}});
+$("reloadBtn").onclick=load;$("downloadPng").onclick=()=>currentUrl?qr.download({name:"colora-product-passport",extension:"png"}):alert("Tạo hoặc chọn identity trước.");$("downloadSvg").onclick=()=>currentUrl?qr.download({name:"colora-product-passport",extension:"svg"}):alert("Tạo hoặc chọn identity trước.");$("testLink").onclick=()=>currentUrl?window.open(currentUrl,"_blank","noopener"):alert("Chưa có link để test.");
+$("logoFile").addEventListener("change",e=>{const f=e.target.files?.[0];if(!f)return;const reader=new FileReader();reader.onload=()=>{logo=reader.result;if(currentUrl)qr.update({image:logo})};reader.readAsDataURL(f)});
+$("writeNfc").onclick=async()=>{if(!currentUrl)return alert("Tạo hoặc chọn identity trước.");if(!("NDEFReader" in window))return alert("Web NFC chủ yếu hỗ trợ Chrome Android và cần HTTPS.");try{const ndef=new NDEFReader();await ndef.write({records:[{recordType:"url",data:currentUrl}]});alert("Đã ghi passport URL vào NFC tag.")}catch(e){alert("Không ghi được NFC: "+e.message)}};
+$("exportBtn").onclick=()=>fetch("/api/admin/export.csv",{headers:{"X-Admin-Key":$("adminKey").value}}).then(r=>{if(!r.ok)throw new Error("Export failed");return r.blob()}).then(b=>{const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="colora-product-passports.csv";a.click();URL.revokeObjectURL(a.href)}).catch(e=>alert(e.message));
+const today=new Date().toISOString().slice(0,10);document.querySelector('[name="issuedAt"]').value=today;document.querySelector('[name="warrantyStart"]').value=today;config().then(()=>{if(savedKey)load()});
+</script>
+</body>
+</html>
