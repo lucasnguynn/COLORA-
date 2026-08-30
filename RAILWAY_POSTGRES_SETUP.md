@@ -1,68 +1,49 @@
-# COLORA — Railway + PostgreSQL setup
+# COLORA V2.2 — Railway + PostgreSQL
 
-## 1) Add PostgreSQL in Railway
-Open the same Railway project that contains the COLORA service.
+## 1. Thêm PostgreSQL
+Trong Railway project: **+ New → Database → PostgreSQL**.
 
-- Click **+ New** on the project canvas.
-- Choose **Database → PostgreSQL**.
-- Wait until the Postgres service shows as deployed.
+## 2. Nối database với service COLORA
+Mở service **COLORA- → Variables → New Variable** và tạo:
 
-## 2) Link DATABASE_URL to the COLORA service
-Open the **COLORA-** service → **Variables**.
+`DATABASE_URL = ${{Postgres.DATABASE_URL}}`
 
-Add a **Reference Variable**:
+Nếu Railway đặt database bằng tên khác, chọn `DATABASE_URL` từ autocomplete của Railway.
 
-- Name: `DATABASE_URL`
-- Value: `${{Postgres.DATABASE_URL}}`
+## 3. Giữ các secret ở Railway
+- `COLORA_ADMIN_KEY` = mật khẩu admin mạnh
+- `COLORA_SIGNING_SECRET` = chuỗi random dài
 
-If your database service has a different name, choose its `DATABASE_URL` from Railway's autocomplete instead of typing the service name manually.
+Không đưa 2 giá trị này lên GitHub hoặc vào frontend.
 
-## 3) Keep these server secrets
-In the COLORA service → Variables, set:
+## 4. Public URL / QR
+Bản V2.2 tự lấy Railway public domain. Nếu `PUBLIC_BASE_URL` cũ đang là localhost, app sẽ bỏ qua nó trên Railway. Frontend cũng tự sửa local passport URL thành domain hiện tại trước khi tạo QR.
 
-- `COLORA_ADMIN_KEY` = a strong internal admin key
-- `COLORA_SIGNING_SECRET` = a long random secret
-
-Do not put either secret in GitHub or in frontend code.
-
-## 4) PUBLIC_BASE_URL
-The updated server automatically prefers Railway's public domain and no longer creates `localhost` QR links in Railway.
-
-You may still set:
+Có thể để `PUBLIC_BASE_URL` trống trên Railway, hoặc đặt domain public thật, ví dụ:
 
 `PUBLIC_BASE_URL=https://colora-production.up.railway.app`
 
-but it is optional on Railway after this update.
-
-## 5) Redeploy and verify
-After adding `DATABASE_URL`, Railway should redeploy the service.
-
-Open:
+## 5. Kiểm tra
+Mở:
 
 `https://YOUR-DOMAIN/health`
 
-Expected result contains:
+Kết quả đúng phải có:
 
-`"database":"postgresql"`
+- `"ok": true`
+- `"database": "postgresql"`
+- `"publicBaseUrl": "https://..."`
 
-The admin page also displays **PostgreSQL connected** above the QR preview.
+Sau đó tạo **một Product Passport mới**. Dòng dưới QR phải bắt đầu bằng `https://`, không phải `localhost`. Bấm **Test link**. Nếu Product Passport mở được, hãy dùng điện thoại quét thử rồi mới in.
 
-## Why the old QR did not scan correctly
-The old page generated a QR containing a local development URL such as:
-
-`http://localhost:8080/p/P-XXXXXX`
-
-A phone scanning that QR tries to open its own localhost, not the Railway server. The updated server derives the real public Railway URL automatically.
-
-## QR safe-scan changes
-The updated QR preview uses:
-
-- standard square modules;
-- standard finder patterns;
-- a larger white quiet zone;
+## QR Safe Scan
+V2.2 dùng:
+- module vuông chuẩn;
+- finder pattern vuông chuẩn;
 - Error Correction H;
-- a smaller center logo;
-- fixed responsive preview sizing;
-- a **Test link** button.
+- quiet zone lớn hơn;
+- logo giữa nhỏ hơn;
+- tự sửa localhost URL trên production.
 
-These changes favor reliable scanning over decorative styling.
+## PostgreSQL
+Khi có `DATABASE_URL`, dữ liệu Product Passport, Warranty, CRM, scan count và scan events được lưu vào PostgreSQL. File `data/products.json` chỉ còn là fallback/dev và nguồn migrate lần đầu nếu database mới còn trống.
