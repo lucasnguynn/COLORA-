@@ -1,78 +1,66 @@
-# COLORA Product Identity Platform — v2
+# COLORA Product Identity Platform — v2.2
 
-Đây là bản nâng cấp từ một QR generator thành một mini Product Identity Platform.
+Mini platform cho **Product Passport + Warranty + NFC + CRM + Authentication**.
 
-## Mục tiêu
-Mỗi món trang sức có một stable URL riêng:
+## Cách hoạt động
+Mỗi món trang sức có một stable URL riêng, ví dụ:
 
-`https://your-domain.com/p/P-XXXXXXXX`
+`https://passport.colora.vn/p/P-XXXXXXXX`
 
-Stable URL này được ghi vào:
-- QR code in trên card / packaging
-- NFC tag/card
+Cùng URL này được ghi vào QR và NFC. Nội dung passport, warranty và CRM có thể cập nhật phía server mà không cần in lại QR.
 
-QR/NFC không cần thay khi nội dung phía sau thay đổi.
-
-## Có sẵn trong starter này
+## V2.2 có gì
 - Product Passport công khai
-- Warranty data
-- CRM/ownership fields ở admin
-- QR với COLORA mark, PNG/SVG
-- Web NFC write (Chrome Android + HTTPS)
-- Unique public ID, serial và auth code
-- HMAC server-side signature cho identity
-- Scan count
-- Anomaly heuristic
-- IP được HMAC-hash trước khi lưu fingerprint; không lưu IP thô
-- Admin registry
-- CSV export cho CRM
-- Trạng thái authentication: authentic / revoked / etc.
-- Stable permalink `/p/:id`
+- Warranty
+- CRM / ownership fields chỉ dành cho admin
+- QR PNG/SVG với COLORA mark
+- Safe-scan QR: module chuẩn, quiet zone lớn, logo nhỏ hơn, Error Correction H
+- Tự sửa local URL thành public origin trên production
+- Web NFC write trên browser hỗ trợ
+- Unique Product ID, Serial, Auth Code
+- HMAC server-side signature
+- Scan count + scan anomaly heuristic
+- Không lưu raw IP; chỉ lưu fingerprint HMAC
+- PostgreSQL production storage
+- JSON fallback để chạy local / migrate dữ liệu cũ
+- CSV export
+- `/health` để kiểm tra deploy + database
+
+## Railway + PostgreSQL
+Xem `RAILWAY_POSTGRES_SETUP.md`.
+
+Tóm tắt:
+1. Railway project → **+ New → Database → PostgreSQL**.
+2. Service COLORA → Variables → tạo Reference Variable:
+   `DATABASE_URL = ${{Postgres.DATABASE_URL}}`
+3. Đặt `COLORA_ADMIN_KEY` và `COLORA_SIGNING_SECRET` ở Railway Variables.
+4. Redeploy.
+5. Mở `/health`; phải thấy `"database":"postgresql"`.
+
+## QR không được chứa localhost
+Production QR phải có dạng:
+
+`https://your-public-domain/p/P-XXXXXX`
+
+Không dùng:
+
+`http://localhost:...`
+
+V2.2 ưu tiên `RAILWAY_PUBLIC_DOMAIN`; nếu frontend vẫn nhận local URL, nó tự thay host bằng `location.origin` trước khi render QR.
 
 ## Chạy local
 Yêu cầu Node.js 18+.
 
-macOS / Linux:
 ```bash
-export COLORA_ADMIN_KEY="your-strong-admin-key"
-export COLORA_SIGNING_SECRET="a-long-random-secret"
-export PUBLIC_BASE_URL="http://localhost:8787"
+npm install
+COLORA_ADMIN_KEY="your-admin-key" \
+COLORA_SIGNING_SECRET="your-signing-secret" \
 node server.js
 ```
 
-Windows PowerShell:
-```powershell
-$env:COLORA_ADMIN_KEY="your-strong-admin-key"
-$env:COLORA_SIGNING_SECRET="a-long-random-secret"
-$env:PUBLIC_BASE_URL="http://localhost:8787"
-node server.js
-```
+Không có `DATABASE_URL` thì app dùng `data/products.json` làm fallback.
 
-Mở: `http://localhost:8787`
-
-## Deploy production
-Đặt app sau HTTPS và dùng domain COLORA sở hữu, ví dụ:
-- `https://passport.colora.vn`
-- hoặc reverse proxy `/p/*` từ `colora.vn`
-
-Biến môi trường bắt buộc:
-- `COLORA_ADMIN_KEY`
-- `COLORA_SIGNING_SECRET`
-- `PUBLIC_BASE_URL`
-
-## Giới hạn của starter
-Starter dùng JSON file làm database để dễ chạy và kiểm tra. Production nên đổi sang PostgreSQL/MySQL/Supabase/Cloudflare D1 tùy hạ tầng.
-
-HMAC signature xác nhận record được COLORA server phát hành, nhưng **không biến QR thành anti-counterfeit tuyệt đối**. QR vẫn có thể bị copy. Để tăng độ tin cậy:
-1. dùng NFC UID/chip có tính năng chống clone nếu budget cho phép;
-2. link ownership/activation sau purchase;
-3. challenge-response hoặc secure NFC chip cho SKU cao cấp;
-4. anomaly detection;
-5. customer activation + transfer ownership;
-6. audit log không sửa được.
-
-## Privacy / CRM
-Chỉ lưu dữ liệu cá nhân khi có cơ sở pháp lý/consent phù hợp. Product Passport công khai không trả customer name/email/phone.
-
-## Haravan
-Haravan có thể tiếp tục làm storefront. Product Identity Platform nên chạy ở backend riêng và dùng custom domain/subdomain. Sau đó Haravan link sang passport hoặc gọi API tùy mức tích hợp.
+## Production notes
+- Không commit admin key, signing secret hoặc database credentials lên GitHub.
+- Authentication bằng signed digital identity giúp phát hiện record bị thay đổi, nhưng QR vẫn có thể bị copy. Với anti-counterfeit mạnh hơn, cần secure NFC/challenge-response/ownership activation.
+- Product Passport công khai không trả customer name/email/phone.
