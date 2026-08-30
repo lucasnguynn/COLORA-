@@ -1,0 +1,12 @@
+{
+  "name": "colora-product-identity-platform",
+  "version": "2.0.0",
+  "private": true,
+  "description": "COLORA Product Passport, Warranty, NFC, CRM and Authentication starter",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
