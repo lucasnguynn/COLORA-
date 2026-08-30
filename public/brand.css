@@ -1,0 +1,137 @@
+/* COLORA Brand UI — based on the supplied brand guideline.
+   Heading: Didot (with Bodoni Moda fallback for devices without Didot)
+   Body/UI: Open Sans
+   Palette: #F4EDE1 #002451 #B08A5B #8E2F2A #0F6857 #DBC9B4 #4A2E23
+*/
+:root{
+  --colora-ivory:#F4EDE1;
+  --colora-navy:#002451;
+  --colora-gold:#B08A5B;
+  --colora-red:#8E2F2A;
+  --colora-green:#0F6857;
+  --colora-sand:#DBC9B4;
+  --colora-brown:#4A2E23;
+  --colora-paper:#FFFDF9;
+  --colora-muted:#756B63;
+  --colora-shadow:rgba(74,46,35,.12);
+  --bg:var(--colora-ivory);
+  --card:var(--colora-paper);
+  --ink:var(--colora-navy);
+  --muted:var(--colora-muted);
+  --line:rgba(176,138,91,.34);
+  --brand:var(--colora-navy);
+  --soft:rgba(219,201,180,.34);
+  --ok:var(--colora-green);
+  --warn:#8A642F;
+  --bad:var(--colora-red);
+  --heading-font:Didot,"Bodoni Moda","Bodoni 72","Bodoni MT",Georgia,serif;
+  --body-font:"Open Sans",Arial,sans-serif;
+}
+
+html{background:var(--colora-ivory)}
+body{
+  font-family:var(--body-font)!important;
+  color:var(--colora-navy)!important;
+  background:
+    radial-gradient(circle at 8% 0%,rgba(219,201,180,.68),transparent 29%),
+    radial-gradient(circle at 100% 15%,rgba(176,138,91,.12),transparent 28%),
+    linear-gradient(145deg,#FFFDF9 0%,var(--colora-ivory) 58%,#EEE2D3 100%)!important;
+}
+
+h1,h2,h3,.brand b,.brand h1,.brand-name,.display-title{
+  font-family:var(--heading-font)!important;
+  font-weight:500!important;
+  letter-spacing:.015em;
+  color:var(--colora-navy)!important;
+}
+
+/* Existing compact monogram remains functional, now in COLORA palette. */
+.mark{
+  background:var(--colora-navy)!important;
+  color:var(--colora-ivory)!important;
+  border:1px solid rgba(176,138,91,.48)!important;
+  box-shadow:0 8px 20px rgba(0,36,81,.12)!important;
+  font-family:var(--heading-font)!important;
+  font-weight:500!important;
+}
+
+.card,
+.staffbox{
+  background:rgba(255,253,249,.94)!important;
+  border-color:rgba(219,201,180,.72)!important;
+  box-shadow:0 18px 55px var(--colora-shadow)!important;
+}
+
+input,textarea,select{
+  font-family:var(--body-font)!important;
+  color:var(--colora-navy)!important;
+  background:#FFFDF9!important;
+  border-color:rgba(176,138,91,.38)!important;
+}
+input::placeholder,textarea::placeholder{color:#9A8D82!important}
+input:focus,textarea:focus,select:focus{
+  border-color:var(--colora-gold)!important;
+  box-shadow:0 0 0 3px rgba(176,138,91,.14)!important;
+}
+label{color:var(--colora-brown)!important}
+.sub,.muted,.tiny,.role-note,.foot{color:var(--colora-muted)!important}
+
+.btn,button{font-family:var(--body-font)!important}
+.primary{
+  background:var(--colora-navy)!important;
+  color:var(--colora-ivory)!important;
+  box-shadow:0 8px 18px rgba(0,36,81,.12);
+}
+.primary:hover{background:#062E62!important}
+.outline{
+  background:#FFFDF9!important;
+  border-color:rgba(176,138,91,.48)!important;
+  color:var(--colora-navy)!important;
+}
+.soft{
+  background:rgba(219,201,180,.42)!important;
+  color:var(--colora-brown)!important;
+}
+.danger{background:rgba(142,47,42,.08)!important;color:var(--colora-red)!important}
+
+.tab{background:rgba(219,201,180,.34)!important;color:var(--colora-brown)!important}
+.tab.active{background:var(--colora-navy)!important;color:var(--colora-ivory)!important}
+.rolepill{background:rgba(176,138,91,.18)!important;color:var(--colora-brown)!important}
+.avatar{background:var(--colora-brown)!important;color:var(--colora-ivory)!important}
+
+.note,.notice,.status{
+  border-color:rgba(219,201,180,.72)!important;
+}
+.note,.notice{background:rgba(244,237,225,.68)!important}
+.mono{background:rgba(219,201,180,.25)!important;color:var(--colora-brown)!important}
+.qrbox{background:#FFFDF9!important;border-color:rgba(176,138,91,.46)!important}
+.logoPreviewBox{background:var(--colora-ivory)!important;border-color:rgba(176,138,91,.42)!important}
+.dbBadge{background:rgba(176,138,91,.16)!important;color:#7A5729!important}
+.dbBadge.ok{background:rgba(15,104,87,.10)!important;color:var(--colora-green)!important}
+.pill{background:rgba(15,104,87,.10)!important;color:var(--colora-green)!important}
+.pill.warn{background:rgba(176,138,91,.15)!important;color:#7A5729!important}
+.pill.bad{background:rgba(142,47,42,.09)!important;color:var(--colora-red)!important}
+
+/* Product Passport */
+.eyebrow{
+  color:var(--colora-gold)!important;
+  letter-spacing:.16em!important;
+}
+.story{color:#5E5047!important}
+.item{border-color:rgba(176,138,91,.32)!important;background:rgba(244,237,225,.22)}
+.item span{color:#8A7A6F!important}
+.verified{background:rgba(15,104,87,.10)!important;color:var(--colora-green)!important}
+.links .btn{color:var(--colora-navy)!important}
+
+/* Elegant micro-accent borrowed from the brand's warm metallic palette. */
+.card::before{
+  content:"";
+  display:block;
+  height:1px;
+  width:46px;
+  background:linear-gradient(90deg,var(--colora-gold),transparent);
+  margin-bottom:14px;
+}
+.preview.card::before,.tableCard.card::before{width:64px}
+
+::selection{background:var(--colora-navy);color:var(--colora-ivory)}
